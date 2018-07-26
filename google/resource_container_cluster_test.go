@@ -1094,6 +1094,40 @@ func TestAccContainerCluster_withIPAllocationPolicy(t *testing.T) {
 	})
 }
 
+func TestAccContainerCluster_withIPAllocationPolicyCIDRBlock(t *testing.T) {
+	t.Parallel()
+
+	cluster := fmt.Sprintf("cluster-test-%s", acctest.RandString(10))
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckContainerClusterDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccContainerCluster_withIPAllocationPolicyCIDRBlock(
+					cluster,
+					map[string]string{
+						"cluster_ipv4_cidr_block":  "10.0.0.0/14",
+						"services_ipv4_cidr_block": "10.20.0.0/20",
+					},
+				),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("google_container_cluster.with_ip_allocation_policy",
+						"ip_allocation_policy.0.cluster_ipv4_cidr_block", "10.0.0.0/14"),
+					resource.TestCheckResourceAttr("google_container_cluster.with_ip_allocation_policy",
+						"ip_allocation_policy.0.services_ipv4_cidr_block", "10.20.0.0/20"),
+				),
+			},
+			{
+				ResourceName:        "google_container_cluster.with_ip_allocation_policy",
+				ImportStateIdPrefix: "us-central1-a/",
+				ImportState:         true,
+				ImportStateVerify:   true,
+			},
+		},
+	})
+}
+
 func TestAccContainerCluster_withPodSecurityPolicy(t *testing.T) {
 	t.Parallel()
 
@@ -2119,6 +2153,26 @@ resource "google_container_cluster" "with_ip_allocation_policy" {
 	    %s
 	}
 }`, acctest.RandString(10), secondaryRanges.String(), cluster, ipAllocationPolicy.String())
+}
+
+func testAccContainerCluster_withIPAllocationPolicyCIDRBlock(cluster string, policy map[string]string) string {
+
+	var ipAllocationPolicy bytes.Buffer
+	for key, value := range policy {
+		ipAllocationPolicy.WriteString(fmt.Sprintf(`
+		%s = "%s"`, key, value))
+	}
+
+	return fmt.Sprintf(`
+resource "google_container_cluster" "with_ip_allocation_policy" {
+	name = "%s"
+	zone = "us-central1-a"
+
+	initial_node_count = 1
+	ip_allocation_policy {
+	    %s
+	}
+}`, cluster, ipAllocationPolicy.String())
 }
 
 func testAccContainerCluster_withPodSecurityPolicy(clusterName string, enabled bool) string {

@@ -434,11 +434,31 @@ func resourceContainerCluster() *schema.Resource {
 							Type:     schema.TypeString,
 							Optional: true,
 							ForceNew: true,
+							DiffSuppressFunc: func(k, old, new string, r *schema.ResourceData) bool {
+								_, Ok := r.GetOk("ip_allocation_policy.0.cluster_ipv4_cidr_block")
+								return Ok
+							},
 						},
 						"services_secondary_range_name": {
 							Type:     schema.TypeString,
 							Optional: true,
 							ForceNew: true,
+							DiffSuppressFunc: func(k, old, new string, r *schema.ResourceData) bool {
+								_, Ok := r.GetOk("ip_allocation_policy.0.cluster_ipv4_cidr_block")
+								return Ok
+							},
+						},
+						"cluster_ipv4_cidr_block": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ForceNew:     true,
+							ValidateFunc: validateRFC1918Network(11, 19),
+						},
+						"services_ipv4_cidr_block": {
+							Type:         schema.TypeString,
+							Optional:     true,
+							ForceNew:     true,
+							ValidateFunc: validateRFC1918Network(16, 24),
 						},
 					},
 				},
@@ -1324,6 +1344,14 @@ func expandIPAllocationPolicy(configured interface{}) (*containerBeta.IPAllocati
 			if v, ok := config["services_secondary_range_name"]; ok {
 				ap.ServicesSecondaryRangeName = v.(string)
 			}
+
+			if v, ok := config["cluster_ipv4_cidr_block"]; ok {
+				ap.ClusterIpv4CidrBlock = v.(string)
+			}
+
+			if v, ok := config["services_ipv4_cidr_block"]; ok {
+				ap.ServicesIpv4CidrBlock = v.(string)
+			}
 		} else {
 			return nil, fmt.Errorf("clusters using IP aliases must specify secondary ranges")
 		}
@@ -1467,6 +1495,8 @@ func flattenIPAllocationPolicy(c *containerBeta.IPAllocationPolicy) []map[string
 		{
 			"cluster_secondary_range_name":  c.ClusterSecondaryRangeName,
 			"services_secondary_range_name": c.ServicesSecondaryRangeName,
+			"cluster_ipv4_cidr_block":       c.ClusterIpv4CidrBlock,
+			"services_ipv4_cidr_block":      c.ServicesIpv4CidrBlock,
 		},
 	}
 }
